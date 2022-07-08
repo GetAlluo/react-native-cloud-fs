@@ -3,8 +3,10 @@
 #import <UIKit/UIKit.h>
 #if __has_include(<React/RCTBridgeModule.h>)
   #import <React/RCTBridgeModule.h>
+  #import <React/RCTEventEmitter.h>
 #else
   #import "RCTBridgeModule.h"
+  #import "RCTEventEmitter.h"
 #endif
 #import "RCTEventDispatcher.h"
 #import "RCTUtils.h"
@@ -13,9 +15,21 @@
 
 @implementation RNCloudFs
 
-- (dispatch_queue_t)methodQueue
-{
-    return dispatch_queue_create("RNCloudFs.queue", DISPATCH_QUEUE_SERIAL);
+NSMetadataQuery *_metadataQuery;
+
+- (NSArray<NSString *> *)supportedEvents {
+    return @[@"processFinishedQuery", @"test", @"updateFiles"];
+}
+
+- (void)processFinishedQuery:(NSNotification *)notification {
+  [_metadataQuery disableUpdates];
+
+  [_metadataQuery stopQuery];
+  [self sendEventWithName:@"processFinishedQuery" body:@{ @"success": @1 }];
+}
+
+- (void)processFileUpdate:(NSNotification *)notification {
+  [self sendEventWithName:@"updateFiles" body:@{ @"updateFiles": @1 }];
 }
 
 RCT_EXPORT_MODULE()
@@ -64,6 +78,27 @@ RCT_EXPORT_METHOD(fileExists:(NSDictionary *)options
     } else {
         RCTLogTrace(@"Could not retrieve a ubiquityURL");
         return reject(@"error", [NSString stringWithFormat:@"could access iCloud drive '%@'", destinationPath], nil);
+    }
+}
+
+RCT_EXPORT_METHOD(initICloud:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    [self sendEventWithName:@"test" body:@{ @"test": @1 }];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                            selector:@selector(processFinishedQuery:)
+                                                name:NSMetadataQueryDidFinishGatheringNotification
+                                            object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                            selector:@selector(processFileUpdate:)
+                                                name:NSMetadataQueryDidUpdateNotification
+                                            object:nil];
+    _metadataQuery = [NSMetadataQuery new];
+    _metadataQuery.notificationBatchingInterval = 1;
+    NSArray *searchScopes = @[NSMetadataQueryUbiquitousDataScope, NSMetadataQueryUbiquitousDocumentsScope];
+    _metadataQuery.searchScopes = searchScopes;
+    if ([_metadataQuery startQuery]) {
+        [_metadataQuery enableUpdates];
+        return resolve(@{ @"success": @1 });
     }
 }
 
