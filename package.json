@@ -1,6 +1,6 @@
 {
   "name": "@alluo/react-native-cloud-fs",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A react-native library for reading and writing files to _iCloud Drive_ (iOS) and _Google Drive_ (Android).",
   "main": "index.js",
   "scripts": {
