@@ -18,14 +18,15 @@
 NSMetadataQuery *_metadataQuery;
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[@"processFinishedQuery", @"test", @"updateFiles"];
+    return @[@"processFinishedQuery", @"updateFiles"];
 }
 
 - (void)processFinishedQuery:(NSNotification *)notification {
   [_metadataQuery disableUpdates];
 
+  NSArray * queryResults = [_metadataQuery results];
+  [self sendEventWithName:@"processFinishedQuery" body:@{ @"success": @1, @"data": queryResults }];
   [_metadataQuery stopQuery];
-  [self sendEventWithName:@"processFinishedQuery" body:@{ @"success": @1 }];
 }
 
 - (void)processFileUpdate:(NSNotification *)notification {
@@ -81,25 +82,30 @@ RCT_EXPORT_METHOD(fileExists:(NSDictionary *)options
     }
 }
 
-RCT_EXPORT_METHOD(initICloud:(RCTPromiseResolveBlock)resolve
+RCT_EXPORT_METHOD(initICloud:(NSString *)searchString
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    [self sendEventWithName:@"test" body:@{ @"test": @1 }];
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                            selector:@selector(processFinishedQuery:)
-                                                name:NSMetadataQueryDidFinishGatheringNotification
-                                            object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                            selector:@selector(processFileUpdate:)
-                                                name:NSMetadataQueryDidUpdateNotification
-                                            object:nil];
-    _metadataQuery = [NSMetadataQuery new];
-    _metadataQuery.notificationBatchingInterval = 1;
-    NSArray *searchScopes = @[NSMetadataQueryUbiquitousDataScope, NSMetadataQueryUbiquitousDocumentsScope];
-    _metadataQuery.searchScopes = searchScopes;
-    if ([_metadataQuery startQuery]) {
-        [_metadataQuery enableUpdates];
-        return resolve(@{ @"success": @1 });
-    }
+
+    dispatch_async(dispatch_get_global_queue(0, 0), ^{
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(processFinishedQuery:)
+                                                    name:NSMetadataQueryDidFinishGatheringNotification
+                                                object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(processFileUpdate:)
+                                                    name:NSMetadataQueryDidUpdateNotification
+                                                object:nil];
+        _metadataQuery = [NSMetadataQuery new];
+        [_metadataQuery setSearchScopes:@[NSMetadataQueryUbiquitousDataScope, NSMetadataQueryUbiquitousDocumentsScope]];
+        [_metadataQuery setPredicate:[NSPredicate predicateWithFormat:@"%K == %@",
+                            NSMetadataItemFSNameKey, searchString]];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if ([_metadataQuery startQuery]) {
+                [_metadataQuery enableUpdates];
+                return resolve(@1);
+            }
+        });
+    });
 }
 
 RCT_EXPORT_METHOD(listFiles:(NSDictionary *)options
