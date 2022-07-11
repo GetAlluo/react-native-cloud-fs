@@ -1,7 +1,7 @@
 {
-  "name": "react-native-cloud-fs",
+  "name": "@alluo/react-native-cloud-fs",
   "version": "1.0.0",
-  "description": "",
+  "description": "A react-native library for reading and writing files to _iCloud Drive_ (iOS) and _Google Drive_ (Android).",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -10,5 +10,16 @@
     "react-native"
   ],
   "author": "",
-  "license": ""
+  "license": "ISC",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GetAlluo/react-native-cloud-fs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GetAlluo/react-native-cloud-fs/issues"
+  },
+  "homepage": "https://github.com/GetAlluo/react-native-cloud-fs#readme"
 }
