@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.homepage         = 'https://github.com/GetAlluo/react-native-cloud-fs'
   s.authors          = 'npomfret'
   s.platforms        = { :ios => "9.0", :tvos => "9.2" }
-  s.source           = { :git => 'https://github.com/GetAlluo/react-native-cloud-fs.git' }
+  s.source           = { :git => 'https://github.com/GetAlluo/react-native-cloud-fs.git', :tag => s.version }
   s.source_files     = 'ios/**/*.{h,m}'
   s.requires_arc     = true
   s.dependency         'React'
