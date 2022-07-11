@@ -3,8 +3,10 @@
 #import <UIKit/UIKit.h>
 #if __has_include(<React/RCTBridgeModule.h>)
   #import <React/RCTBridgeModule.h>
+  #import <React/RCTEventEmitter.h>
 #else
   #import "RCTBridgeModule.h"
+  #import "RCTEventEmitter.h"
 #endif
 #import "RCTEventDispatcher.h"
 #import "RCTUtils.h"
@@ -13,9 +15,22 @@
 
 @implementation RNCloudFs
 
-- (dispatch_queue_t)methodQueue
-{
-    return dispatch_queue_create("RNCloudFs.queue", DISPATCH_QUEUE_SERIAL);
+NSMetadataQuery *_metadataQuery;
+
+- (NSArray<NSString *> *)supportedEvents {
+    return @[@"processFinishedQuery", @"updateFiles"];
+}
+
+- (void)processFinishedQuery:(NSNotification *)notification {
+  [_metadataQuery disableUpdates];
+
+  NSArray * queryResults = [_metadataQuery results];
+  [self sendEventWithName:@"processFinishedQuery" body:@{ @"success": @1, @"data": queryResults }];
+  [_metadataQuery stopQuery];
+}
+
+- (void)processFileUpdate:(NSNotification *)notification {
+  [self sendEventWithName:@"updateFiles" body:@{ @"updateFiles": @1 }];
 }
 
 RCT_EXPORT_MODULE()
@@ -65,6 +80,32 @@ RCT_EXPORT_METHOD(fileExists:(NSDictionary *)options
         RCTLogTrace(@"Could not retrieve a ubiquityURL");
         return reject(@"error", [NSString stringWithFormat:@"could access iCloud drive '%@'", destinationPath], nil);
     }
+}
+
+RCT_EXPORT_METHOD(initICloud:(NSString *)searchString
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+
+    dispatch_async(dispatch_get_global_queue(0, 0), ^{
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(processFinishedQuery:)
+                                                    name:NSMetadataQueryDidFinishGatheringNotification
+                                                object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(processFileUpdate:)
+                                                    name:NSMetadataQueryDidUpdateNotification
+                                                object:nil];
+        _metadataQuery = [NSMetadataQuery new];
+        [_metadataQuery setSearchScopes:@[NSMetadataQueryUbiquitousDataScope, NSMetadataQueryUbiquitousDocumentsScope]];
+        [_metadataQuery setPredicate:[NSPredicate predicateWithFormat:@"%K == %@",
+                            NSMetadataItemFSNameKey, searchString]];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if ([_metadataQuery startQuery]) {
+                [_metadataQuery enableUpdates];
+                return resolve(@1);
+            }
+        });
+    });
 }
 
 RCT_EXPORT_METHOD(listFiles:(NSDictionary *)options
